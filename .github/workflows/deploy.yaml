@@ -1,0 +1,38 @@
+name: Final Laboratory: Signed URL File Gateway Serverless
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:  
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:          
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/githubaws
+          aws-region: us-east-1
+
+      - name: Install AWS SAM CLI
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install aws-sam-cli
+
+      - name: SAM Build and Deploy
+        run: |
+          sam build
+          sam deploy \
+              --stack-name coderoad-lab-final \
+              --region us-east-1 \
+              --capabilities CAPABILITY_IAM \
+              --resolve-s3 \
+              --no-confirm-changeset \
+              --no-fail-on-empty-changeset
