@@ -1,0 +1,57 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Final Lab - Signed URL File Gateway (Serverless)
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 15
+    MemorySize: 256
+    Environment:
+      Variables:
+        IMAGES_BUCKET: !Ref FileGatewayBucket
+
+Resources:
+  # 1. El Bucket de S3 (Privado por defecto)
+  FileGatewayBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub file-gateway-${AWS::AccountId}-${AWS::Region}
+      # Eliminamos cualquier configuración de acceso público para seguridad
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # 2. La Función Lambda Única
+  FileGatewayFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: app.app_handler
+      Policies:
+        # Permisos mínimos: Lectura y Escritura en el bucket específico
+        - S3CrudPolicy:
+            BucketName: !Ref FileGatewayBucket
+      Events:
+        # Endpoint A: POST /files
+        UploadRequest:
+          Type: HttpApi
+          Properties:
+            Path: /files
+            Method: post
+        # Endpoint B: GET /files/{objectKey}
+        DownloadRequest:
+          Type: HttpApi
+          Properties:
+            Path: /files/{objectKey+}
+            Method: get
+
+Outputs:
+  ApiUrl:
+    Description: "URL base de tu API Gateway"
+    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+  BucketName:
+    Description: "Nombre del bucket creado"
+    Value: !Ref FileGatewayBucket
