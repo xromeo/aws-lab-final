@@ -11,7 +11,36 @@ The solution follows the **Serverless track**:
 * **Amazon S3:** Private storage for uploaded files.
 * **IAM Role:** Implements least-privilege access, allowing the Lambda function to perform `s3:PutObject` and `s3:GetObject` only.
 
+FILE GATEWAY FLOWS (SERVERLESS)
+      ================================
 
+    ENDPOINT A: POST (UPLOAD PREP)            ENDPOINT B: GET (DOWNLOAD REDIRECT)
+   --------------------------------          ------------------------------------
+
+      CLIENT        API + LAMBDA      S3        CLIENT        API + LAMBDA      S3
+        |                |             |          |                |             |
+   (1)  |-- POST /files >|             |     (4)  |-- GET /files/k>|             |
+        |                |             |          |                |             |
+        |                |-- 2. Sign ->|          |                |-- 5. Sign ->|
+        |                |   PUT URL   |          |                |   GET URL   |
+        |                |             |          |                |             |
+   (3)  |<-- uploadUrl --|             |     (6)  |<-- HTTP 307 ---|             |
+        |     (JSON)     |             |          |   (Location)   |             |
+        |                |             |          |                |             |
+        |                |             |          |                |             |
+   (4)  |--- HTTP PUT ---------------->|     (7)  |--- HTTP GET (Follow Loc) --->|
+        |  (Upload File)               |          |                              |
+        |                |             |     (8)  |<----- File Binary Data ------|
+        |                |             |          |                              |
+
+### HTTP Redirect Selection: 307 Temporary Redirect
+
+For **Endpoint B (GET)**, the service returns an **HTTP 307** status code.
+
+**Why is it appropriate?**
+* **Method Preservation:** Unlike `302 Found`, the `307` status code guarantees that the client **must not** change the HTTP method. Since the client is performing a `GET` request to our API, it will strictly perform a `GET` request to the signed S3 URL.
+* **Security:** It explicitly signals that the resource's new location is only **temporary**. This is ideal for pre-signed URLs that expire after 1 hour, preventing browsers or caches from permanently storing the sensitive S3 link.
+* **Standard Compliance:** It follows modern RESTful practices for serverless gateways, ensuring seamless behavior across browsers and CLI tools like `curl`.
 
 ---
 
